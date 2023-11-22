@@ -1,6 +1,6 @@
 Airbnb Analysis
 
-Airbnb dataset cleaned and data taken for analysis and visualization
+Airbnb dataset cleaned and data has taken for analysis and visualization
 
 workflow:
 
@@ -19,7 +19,7 @@ workflow:
 Packages to be installed
 streamlit, pandas, geopandas and matplot
 
-Python scripting, Data Preprocessing, Visualization,EDA, Streamlit, MongoDb, PowerBI or Tableau 
+Python scripting, Data Preprocessing, Visualization,EDA, Streamlit, MongoDb, PowerBI 
 
 
 
