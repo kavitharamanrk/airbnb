@@ -5,6 +5,11 @@ from pymongo.mongo_client import MongoClient
 import mysql.connector 
 import plotly.express as px
 import streamlit as st
+import matplotlib.pyplot as plt
+import altair as alt
+import numpy as np
+import folium
+from streamlit_folium import st_folium
 
 def streamlit_config():
 
@@ -15,7 +20,7 @@ def streamlit_config():
 class Data_Collection:
     def get_data():
         try:
-            client=MongoClient("mongodb+srv://user:pwd@cluster.ygqmci0.mongodb.net/?retryWrites=true&w=majority")
+            client=MongoClient("mongodb+srv://user:@name.mongodb.net/?retryWrites=true&w=majority")
             db = client.sample_airbnb
             Collection=db.listingsAndReviews
             data=Collection.find({},{"_id":False})
@@ -33,7 +38,6 @@ class Data_Collection:
             host="localhost",
             user="root",
             password="",
-            database="airbnb",
             )
             mycursor = mydb.cursor(buffered=True)
             mycursor.execute(query)
@@ -146,7 +150,7 @@ class sql:
                 host="localhost",
                 user="root",
                 password="",
-                database="airbnb",
+                database="",
                 )
             mycursor = mydb.cursor()
             mycursor.execute(f"""create table if not exists airbnb(
@@ -211,13 +215,11 @@ class sql:
                 host="localhost",
                 user="root",
                 password="",
-                database="airbnb",
                 )
             mycursor = mydb.cursor()
             for i,row in df.iterrows():
                 try:
-                    # print(i,row)
-                    # print(tuple(row))
+
                     sqlquery = "insert into airbnb \
                                     values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,\
                                         %s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,\
@@ -232,91 +234,13 @@ class sql:
         except Exception as e:
             print(e)
 
-class plotly:
 
-    def pie_chart(df, x, y, title, title_x=0.20):
-
-        fig = px.pie(df, names=x, values=y, hole=0.5, title=title)
-
-        fig.update_layout(title_x=title_x, title_font_size=22)
-
-        fig.update_traces(text=df[y], textinfo='percent+value',
-                          textposition='outside',
-                          textfont=dict(color='white'))
-
-        st.plotly_chart(fig, use_container_width=True)
-
-    def horizontal_bar_chart(df, x, y, text, color, title, title_x=0.25):
-
-        fig = px.bar(df, x=x, y=y, labels={x: '', y: ''}, title=title)
-
-        fig.update_xaxes(showgrid=False)
-        fig.update_yaxes(showgrid=False)
-
-        fig.update_layout(title_x=title_x, title_font_size=22)
-
-        text_position = ['inside' if val >= max(
-            df[x]) * 0.75 else 'outside' for val in df[x]]
-
-        fig.update_traces(marker_color=color,
-                          text=df[text],
-                          textposition=text_position,
-                          texttemplate='%{x}<br>%{text}',
-                          textfont=dict(size=14),
-                          insidetextfont=dict(color='white'),
-                          textangle=0,
-                          hovertemplate='%{x}<br>%{y}')
-
-        st.plotly_chart(fig, use_container_width=True)
-
-    def vertical_bar_chart(df, x, y, text, color, title, title_x=0.25):
-
-        fig = px.bar(df, x=x, y=y, labels={x: '', y: ''}, title=title)
-
-        fig.update_xaxes(showgrid=False)
-        fig.update_yaxes(showgrid=False)
-
-        fig.update_layout(title_x=title_x, title_font_size=22)
-
-        text_position = ['inside' if val >= max(
-            df[y]) * 0.90 else 'outside' for val in df[y]]
-
-        fig.update_traces(marker_color=color,
-                          text=df[text],
-                          textposition=text_position,
-                          texttemplate='%{y}<br>%{text}',
-                          textfont=dict(size=14),
-                          insidetextfont=dict(color='white'),
-                          textangle=0,
-                          hovertemplate='%{x}<br>%{y}')
-
-        st.plotly_chart(fig, use_container_width=True, height=100)
-
-    def line_chart(df, x, y, text, textposition, color, title, title_x=0.25):
-
-        fig = px.line(df, x=x, y=y, labels={
-                      x: '', y: ''}, title=title, text=df[text])
-
-        fig.update_layout(title_x=title_x, title_font_size=22)
-
-        fig.update_traces(line=dict(color=color, width=3.5),
-                          marker=dict(symbol='diamond', size=10),
-                          texttemplate='%{x}<br>%{text}',
-                          textfont=dict(size=13.5),
-                          textposition=textposition,
-                          hovertemplate='%{x}<br>%{y}')
-
-        st.plotly_chart(fig, use_container_width=True, height=100)
-
-
-class Data_Analysis:
-
-    def charts_str(query,collist):
+    def select_qry(query,collist):
         mydb =  mysql.connector.connect(
             host="localhost",
             user="root",
             password="",
-            database="airbnb",
+            database="",
             )
         mycursor = mydb.cursor()
         mycursor.execute(query)
@@ -324,237 +248,86 @@ class Data_Analysis:
         data = pd.DataFrame(query_res,columns=collist)
         return data
 
-    def charts_structure(column_name, order='count desc'):
-        mydb =  mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            database="airbnb",
-            )
-        mycursor = mydb.cursor()
-        mycursor.execute(f"""select distinct {column_name}, count({column_name}) as count
-                           from airbnb
-                           group by {column_name} order by {order} limit 10;""")
-        s = mycursor.fetchall()
-        i = [i for i in range(1, len(s)+1)]
-        data = pd.DataFrame(s, columns=[column_name, 'count'], index=i)
-        data = data.rename_axis('S.No')
-        data.index = data.index.map(lambda x: '{:^{}}'.format(x, 10))
-        data['percentage'] = data['count'].apply(lambda x: str('{:.2f}'.format(x/55.55)) + '%')
-        data['y'] = data[column_name].apply(lambda x: str(x)+'`')
-        return data
-
-    def cleaning_fee():
-        mydb =  mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            database="airbnb",
-            )
-        mycursor = mydb.cursor()
-        mycursor.execute(f"""select distinct cleaning_fee, count(cleaning_fee) as count
-                           from airbnb
-                           where cleaning_fee != 'Not Specified'
-                           group by cleaning_fee
-                           order by count desc
-                           limit 10;""")
-        s = mycursor.fetchall()
-        i = [i for i in range(1, len(s)+1)]
-        data = pd.DataFrame(s, columns=['cleaning_fee', 'count'], index=i)
-        data = data.rename_axis('S.No')
-        data.index = data.index.map(lambda x: '{:^{}}'.format(x, 10))
-        data['percentage'] = data['count'].apply(
-            lambda x: str('{:.2f}'.format(x/55.55)) + '%')
-        data['y'] = data['cleaning_fee'].apply(lambda x: str(x)+'`')
-        return data
-
-    def location():
-        mydb =  mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            database="airbnb",
-            )
-        mycursor = mydb.cursor()
-        mycursor.execute(f"""select host_id, country, longitude, latitude
-                           from airbnb
-                           group by host_id, country, longitude, latitude""")
-        s = mycursor.fetchall()
-        i = [i for i in range(1, len(s)+1)]
-        data = pd.DataFrame(
-            s, columns=['Host ID', 'Country', 
-                        'Longitude', 'Latitude'], index=i)
-        data = data.rename_axis('S.No')
-        data.index = data.index.map(lambda x: '{:^{}}'.format(x, 10))
-        return data
-
-    def charts():
-        # vertical_bar chart
-        col_list=['Property Type','Property Count']
-        df1 = Data_Analysis.charts_str("select property_type, count(*) as count from airbnb group by property_type order by property_type",col_list)
-        st.bar_chart(df1, x='Property Type', y='Property Count',color='#4933FF', width=0, height=0, use_container_width=True)
-
-
-        # line & pie chart
-        col1, col2 = st.columns(2)
+class Data_Analysis:
+    def user_charts():
+        st.caption("Locationwise Analysis")
+        col_list3=['country','government_area']
+        df3 = sql.select_qry("select  country, government_area from  order by country",col_list3)
+        col7,col8 = st.columns(2)
+        pcolor='reds'
+        with col7:
+            country_in = st.selectbox('Select Country',options=df3['country'].unique())
+        with col8:
+            df3 = df3.query(f'country == "{country_in}"')
+            option_area = st.selectbox('Select area',options=df3['government_area'].unique())
+        # df3 = df3.query(f'country == "{country_in}" and government_area=="{option_area}"')
+        col_list4=['Max Price','Min Price', 'Max Monthly Price','Min Monthly Price' ,'Max Weekly Price','Min Weekly Price','Max Security Deposit', 'Max Availability in 30 days','Max Availability in 60 days','Max Availability in 90 days', 'Max Availability in 365 days']
+        df4=sql.select_qry(f'select max(price),min(price),max(monthly_price),min(monthly_price),max(weekly_price),min(weekly_price),max(security_deposit),max(availability_30),max(availability_60),max(availability_90),max(availability_365) from airbnb where country="{country_in}" and government_area="{option_area}"',col_list4)
+        st.dataframe(df4, hide_index=True)
+        return
+   
+    def price_charts():
+        col_list=['country','price','weekly_price','monthly_price' ,'security_deposit','room_type','bed_type','property_type','cleaning_fee']
+        df1 = sql.select_qry("select country,price,weekly_price, monthly_price,security_deposit,room_type,bed_type,property_type,cleaning_fee from airbnb",col_list)
+        col1,col2,col3 = st.columns(3)
         with col1:
-            col_list=['Bed Type','Count']
-            bed_type = Data_Analysis.charts_str("select bed_type, count(*) as count from airbnb group by bed_type order by bed_type",col_list)
-            fig = px.pie(bed_type, values='Count', names='Bed Type',color_discrete_sequence=px.colors.sequential.Viridis, title='Bed Type')
-            st.plotly_chart(fig)   
+            country_in = st.selectbox('Select a Country',options=df1['country'].unique())
         with col2:
-            room_type = Data_Analysis.charts_structure('room_type')
-            plotly.pie_chart(df=room_type, x='room_type',y='count', title='Room Type', title_x=0.30)
+            option_lis = st.selectbox('Select room/bed price',options=['room','bed','property type'])
+        with col3:
+            option_price = st.selectbox('Select any one',options=['price','monthly price','weekly price','security deposit'])
+        if option_lis=='room':
+            xaxis='room_type'    
+        elif option_lis=='bed':
+            xaxis='bed_type'
+        else:
+            xaxis='property_type'
+        if option_price=='price':
+            yaxis='price'
+        elif option_price=='monthly price':
+            yaxis='monthly_price'
+        elif option_price=='weekly price':
+            yaxis='weekly_price'
+        elif option_price=='security deposit':
+            yaxis='security_deposit'
+        else:
+            yaxis='cleaning_fee'
+        df1 = df1.query(f'country == "{country_in}"  ')
+        fig1 = px.bar(df1, x=xaxis, y=yaxis,color=xaxis,color_continuous_scale="reds",text=yaxis,title="Price Analysis")
+        st.plotly_chart(fig1,use_container_width=True)
+        return
+    
+    def availability_charts():
+        col_list=['country','government_area','availability_30','availability_60' ,'availability_90','availability_365','price']
+        df2 = sql.select_qry("select country,government_area,availability_30,availability_60,availability_90,availability_365,price from airbnb order by country",col_list)
+        col4,col5,col6 = st.columns(3)
+        pcolor='reds'
+        with col4:
+            country_in = st.selectbox('Country',options=df2['country'].unique())
+        with col5:
+            df2 = df2.query(f'country == "{country_in}"')
+            option_area = st.selectbox('Area',options=df2['government_area'].unique())
+        with col6:
+            option_price = st.selectbox('Select Availability in days',options=['30','60' ,'90','365'])
+        if option_price=='30':
+            yaxis='availability_30'
+        elif option_price=='60':
+            yaxis='availability_60'
+        elif option_price=='90':
+            yaxis='availability_90'
+        elif option_price=='365':
+            yaxis='availability_365'
 
-        # vertical_bar chart
-        tab1, tab2 = st.tabs(['Minimum Nights', 'Maximum Nights'])
-        with tab1:
-            minimum_nights = Data_Analysis.charts_structure('minimum_nights')
-            plotly.vertical_bar_chart(df=minimum_nights, x='y', y='count', text='percentage',
-                                      color='#5cb85c', title='Minimum Nights', title_x=0.43)
-        with tab2:
-            maximum_nights = Data_Analysis.charts_structure('maximum_nights')
-            plotly.vertical_bar_chart(df=maximum_nights, x='y', y='count', text='percentage',
-                                      color='#5cb85c', title='Maximum Nights', title_x=0.43)
-
-        # line chart
-        cancellation_policy = Data_Analysis.charts_structure('cancellation_policy')
-        plotly.line_chart(df=cancellation_policy, y='cancellation_policy', x='count', text='percentage', color='#5D9A96',
-                          textposition=['top center', 'top right',
-                                        'top center', 'bottom center', 'middle right'],
-                          title='Cancellation Policy', title_x=0.43)
-
-        # vertical_bar chart
-        accommodates = Data_Analysis.charts_structure('accommodates')
-        plotly.vertical_bar_chart(df=accommodates, x='y', y='count', text='percentage',
-                                  color='#5D9A96', title='Accommodates', title_x=0.43)
-
-        # vertical_bar chart
-        tab1, tab2, tab3 = st.tabs(['Bedrooms', 'Beds', 'Bathrooms'])
-        with tab1:
-            bedrooms = Data_Analysis.charts_structure('bedrooms')
-            plotly.vertical_bar_chart(df=bedrooms, x='y', y='count', text='percentage',
-                                      color='#5cb85c', title='Bedrooms', title_x=0.43)
-        with tab2:
-            beds = Data_Analysis.charts_structure('beds')
-            plotly.vertical_bar_chart(df=beds, x='y', y='count', text='percentage',
-                                      color='#5cb85c', title='Beds', title_x=0.43)
-        with tab3:
-            bathrooms = Data_Analysis.charts_structure('bathrooms')
-            plotly.vertical_bar_chart(df=bathrooms, x='y', y='count', text='percentage',
-                                      color='#5cb85c', title='Bathrooms', title_x=0.43)
-
-        # vertical_bar chart
-        tab1, tab2, tab3, tab4 = st.tabs(
-            ['Price', 'Cleaning Fee', 'Extra People', 'Guests Included'])
-        with tab1:
-            price = Data_Analysis.charts_structure('price')
-            plotly.vertical_bar_chart(df=price, x='y', y='count', text='percentage',
-                                      color='#5D9A96', title='Price', title_x=0.43)
-        with tab2:
-            cleaning_fee = Data_Analysis.cleaning_fee()
-            plotly.vertical_bar_chart(df=cleaning_fee, x='y', y='count', text='percentage',
-                                      color='#5D9A96', title='Cleaning Fee', title_x=0.43)
-        with tab3:
-            extra_people = Data_Analysis.charts_structure('extra_people')
-            plotly.vertical_bar_chart(df=extra_people, x='y', y='count', text='percentage',
-                                      color='#5D9Ae96', title='Extra People', title_x=0.43)
-        with tab4:
-            guests_included = Data_Analysis.charts_structure('guests_included')
-            plotly.vertical_bar_chart(df=guests_included, x='y', y='count', text='percentage',
-                                      color='#5D9A96', title='Guests Included', title_x=0.43)
-
-        # line chart
-        host_response_time = Data_Analysis.charts_structure('host_response_time')
-        plotly.line_chart(df=host_response_time, y='host_response_time', x='count', text='percentage', color='#5cb85c',
-                          textposition=['top center', 'top right',
-                                        'top right', 'bottom left', 'bottom left'],
-                          title='Host Response Time', title_x=0.43)
-
-        # vertical_bar chart
-        tab1, tab2 = st.tabs(['Host Response Rate', 'Host Listings Count'])
-        with tab1:
-            host_response_rate = Data_Analysis.charts_structure('host_response_rate')
-            plotly.vertical_bar_chart(df=host_response_rate, x='y', y='count', text='percentage',
-                                      color='#5cb85c', title='Host Response Rate', title_x=0.43)
-        with tab2:
-            host_listings_count = Data_Analysis.charts_structure('host_listings_count')
-            plotly.vertical_bar_chart(df=host_listings_count, x='y', y='count', text='percentage',
-                                      color='#5cb85c', title='Host Listings Count', title_x=0.43)
-
-        # pie chart
-        tab1, tab2, tab3 = st.tabs(
-            ['Host is Superhost', 'Host has Profile Picture', 'Host Identity Verified'])
-        with tab1:
-            host_is_superhost = Data_Analysis.charts_structure('host_is_superhost')
-            plotly.pie_chart(df=host_is_superhost, x='host_is_superhost',
-                             y='count', title='Host is Superhost', title_x=0.39)
-        with tab2:
-            host_has_profile_pic = Data_Analysis.charts_structure('host_has_profile_pic')
-            plotly.pie_chart(df=host_has_profile_pic, x='host_has_profile_pic',
-                             y='count', title='Host has Profile Picture', title_x=0.37)
-        with tab3:
-            host_identity_verified = Data_Analysis.charts_structure('host_identity_verified')
-            plotly.pie_chart(df=host_identity_verified, x='host_identity_verified',
-                             y='count', title='Host Identity Verified', title_x=0.37)
-
-        # vertical_bar,pie,map chart
-        tab1, tab2, tab3 = st.tabs(['Market', 'Country', 'Location Exact'])
-        with tab1:
-            market = Data_Analysis.charts_structure('market', limit=12)
-            plotly.vertical_bar_chart(df=market, x='market', y='count', text='percentage',
-                                      color='#5D9A96', title='Market', title_x=0.43)
-        with tab2:
-            country = Data_Analysis.charts_structure('country')
-            plotly.vertical_bar_chart(df=country, x='country', y='count', text='percentage',
-                                      color='#5D9A96', title='Country', title_x=0.43)
-        with tab3:
-            is_location_exact = Data_Analysis.charts_structure('is_location_exact')
-            plotly.pie_chart(df=is_location_exact, x='is_location_exact', y='count',
-                             title='Location Exact', title_x=0.37)
-
-        # vertical_bar,pie,map chart
-        tab1, tab2, tab3, tab4 = st.tabs(['Availability 30', 'Availability 60',
-                                          'Availability 90', 'Availability 365'])
-        with tab1:
-            availability_30 = Data_Analysis.charts_structure('availability_30')
-            plotly.vertical_bar_chart(df=availability_30, x='y', y='count', text='percentage',
-                                      color='#5cb85c', title='Availability 30', title_x=0.45)
-        with tab2:
-            availability_60 = Data_Analysis.charts_structure('availability_60')
-            plotly.vertical_bar_chart(df=availability_60, x='y', y='count', text='percentage',
-                                      color='#5cb85c', title='Availability 60', title_x=0.45)
-        with tab3:
-            availability_90 = Data_Analysis.charts_structure('availability_90')
-            plotly.vertical_bar_chart(df=availability_90, x='y', y='count', text='percentage',
-                                      color='#5cb85c', title='Availability 90', title_x=0.45)
-        with tab4:
-            availability_365 = Data_Analysis.charts_structure('availability_365')
-            plotly.vertical_bar_chart(df=availability_365, x='y', y='count', text='percentage',
-                                      color='#5cb85c', title='Availability 365', title_x=0.45)
-
-        # vertical_bar,pie,map chart
-        tab1, tab2, tab3 = st.tabs(
-            ['Number of Reviews', 'Maximum Number of Reviews', 'Review Scores'])
-        with tab1:
-            number_of_reviews = Data_Analysis.charts_structure('number_of_reviews')
-            plotly.vertical_bar_chart(df=number_of_reviews, x='y', y='count', text='percentage',
-                                      color='#5D9A96', title='Number of Reviews', title_x=0.43)
-        with tab2:
-            max_number_of_reviews = Data_Analysis.charts_structure(
-                'number_of_reviews', order='number_of_reviews desc')
-            plotly.vertical_bar_chart(df=max_number_of_reviews, x='y', y='count', text='percentage',
-                                      color='#5D9A96', title='Maximum Number of Reviews', title_x=0.35)
-        with tab3:
-            review_scores = Data_Analysis.charts_structure('review_scores')
-            plotly.vertical_bar_chart(df=review_scores, x='y', y='count', text='percentage',
-                                      color='#5D9A96', title='Review Scores', title_x=0.43)
+        df2 = df2.query(f'country == "{country_in}" and government_area=="{option_area}"')
+        fig2= px.pie(df2, names='price', values=yaxis,color_discrete_sequence=px.colors.sequential.Viridis, title='Rooms Availability')
+        st.plotly_chart(fig2,use_container_width=True)
+        return
 
 
 # streamlit title, background color and tab configuration
 streamlit_config()
 
-tab1, tab2, tab3,tab4,tab5 = st.tabs(["Airbnb Data", "Migration", "Analysis","Geo Visualization","About"])  
+tab1, tab2, tab3,tab4,tab5,tab6 = st.tabs(["Airbnb Data", "Migration", "Data Analysis","Geo Visualization","Dashboard","About"])  
 with tab1:
     df=Data_Collection.get_data()
     df=Preprocessing.data_cleaning(df)
@@ -570,12 +343,45 @@ with tab2:
         st.balloons() 
 
 with tab3:
-    Data_Analysis.charts()
+    Data_Analysis.user_charts()
+    Data_Analysis.price_charts()
+    Data_Analysis.availability_charts()
 
 with tab4:
-    df = pd.DataFrame(np.random.randn(1000, 2) / [50, 50] + [37.76, -122.4],columns=['lat', 'lon'])
-    st.map(d)
+    cities=gpd.read_file(gpd.datasets.get_path("naturalearth_cities"))
+    cities["long"]=cities["geometry"].x
+    cities["lat"]=cities["geometry"].y
+    mydb =  mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="",
+    database="",
+    )
+    mycursor = mydb.cursor()
+    mycursor.execute("select  country,government_area,name,country_code,price,longitude,latitude,review_score_rating from airbnb")
+    query_res = mycursor.fetchall()
+    map_df = pd.DataFrame(query_res,columns=['country','area','airbnbname','country_code','price','longitude','latitude','review_score_rating'])
+    map_df['cities']=cities['name']
+    map_df["long"]=cities["long"]
+    map_df["lat"]=cities["lat"]
+    fig=px.scatter_mapbox(map_df,
+                          lat="latitude",
+                          lon="longitude",
+                          hover_name='airbnbname',
+                          hover_data='price',
+                          color="cities",
+                          zoom=5,
+                          height=500,
+                          width=1200
+                          )
+    fig.update_layout(mapbox_style='stamen-terrain')
+    fig.update_layout(title_text='Airbnb')
+    st.plotly_chart(fig, use_container_width=True)
+
 with tab5:
+    st.image("airbnb_dashboard.png")
+
+with tab6:
     st.markdown("* :blue[This application is used to analyze Airbnb data using MongoDB Atlas, perform data cleaning and preparation, develop interactive geospatial visualizations, and create dynamic plots to gain insights into pricing variations, availability patterns, and location-based trends.]")
-    st.markdown("* :blue[Used Tech:Python , Streamlit, MongoDb, PowerBI and MySQL]")
+    st.markdown("* :blue[Used Tech: Python, Streamlit, MongoDb, PowerBI and MySQL.]")
   
