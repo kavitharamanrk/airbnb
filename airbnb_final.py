@@ -6,16 +6,7 @@ import mysql.connector
 import plotly.express as px
 import streamlit as st
 import matplotlib.pyplot as plt
-import altair as alt
-import numpy as np
-import folium
-from streamlit_folium import st_folium
 
-def streamlit_config():
-
-    # page configuration
-    st.set_page_config(page_title='airbnb analysis - Kavitha',page_icon='airbnb.png', layout="wide")
-    st.markdown(f'<h1 style="text-align: center; color:red ">Airbnb Analysis</h1>',unsafe_allow_html=True)
 
 class Data_Collection:
     def get_data():
@@ -32,24 +23,6 @@ class Data_Collection:
             print("Mongo data collected")                
         return df
     
-    def mySqlConnection(query):
-        try:
-            mydb = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="",
-            )
-            mycursor = mydb.cursor(buffered=True)
-            mycursor.execute(query)
-            out=mycursor.fetchall()
-            mydb.close()  
-        except Exception as e:
-            print("SQL DB Connection error:",{e})
-        finally:
-            print("DB Closed")
-            return out
-
-
 class Preprocessing:
     def data_cleaning(df):
         try:
@@ -90,8 +63,6 @@ class Preprocessing:
             df['review_scores_value'] =df['review_scores'].apply(lambda x: x.get('review_scores_value', 0))
             df.drop('review_scores',axis=1, inplace=True)
         
-            # df['reviewer_name'] = df['reviews'].apply(lambda x: x['reviewer_name'])
-            # df['review_comment'] = df['reviews'].apply(lambda x: x['comments'])
         
             # host
             df['host_id'] = df['host'].apply(lambda x: x['host_id'])
@@ -144,13 +115,14 @@ class Preprocessing:
         return df
 
 class sql:
+    # Create table in sql
     def create_table():
         try:
             mydb =  mysql.connector.connect(
                 host="localhost",
                 user="root",
-                password="",
-                database="",
+                password="myData1",
+                database="airbnb",
                 )
             mycursor = mydb.cursor()
             mycursor.execute(f"""create table if not exists airbnb(
@@ -209,12 +181,14 @@ class sql:
         finally:
             print("Table created")
 
+    # Insert data into sql
     def data_migration(df):
         try:
             mydb =  mysql.connector.connect(
                 host="localhost",
                 user="root",
-                password="",
+                password="myData1",
+                database="airbnb",
                 )
             mycursor = mydb.cursor()
             for i,row in df.iterrows():
@@ -234,25 +208,46 @@ class sql:
         except Exception as e:
             print(e)
 
-
+    # Select query for charts
     def select_qry(query,collist):
         mydb =  mysql.connector.connect(
             host="localhost",
             user="root",
-            password="",
-            database="",
+            password="myData1",
+            database="airbnb",
             )
         mycursor = mydb.cursor()
         mycursor.execute(query)
         query_res = mycursor.fetchall()
         data = pd.DataFrame(query_res,columns=collist)
         return data
-
+    
+    # Connect db and  fetch data
+    def select_data(query):
+        try:
+            mydb = mysql.connector.connect(
+            host="localhost",
+            user="root",
+            password="myData1",
+            database="airbnb",
+            )
+            mycursor = mydb.cursor(buffered=True)
+            mycursor.execute(query)
+            out=mycursor.fetchall()
+            mydb.close()  
+        except Exception as e:
+            print("SQL DB Connection error:",{e})
+        finally:
+            print("DB Closed")
+            return out
+        
+# user,price, availability Charts 
 class Data_Analysis:
+    # Locationwise analysis
     def user_charts():
-        st.caption("Locationwise Analysis")
+        st.markdown(f'<h4 style="text-align: center; color:blue ">Locationwise Analysis</h4>',unsafe_allow_html=True)
         col_list3=['country','government_area']
-        df3 = sql.select_qry("select  country, government_area from  order by country",col_list3)
+        df3 = sql.select_qry("select  country, government_area from  airbnb order by country",col_list3)
         col7,col8 = st.columns(2)
         pcolor='reds'
         with col7:
@@ -260,24 +255,26 @@ class Data_Analysis:
         with col8:
             df3 = df3.query(f'country == "{country_in}"')
             option_area = st.selectbox('Select area',options=df3['government_area'].unique())
-        # df3 = df3.query(f'country == "{country_in}" and government_area=="{option_area}"')
+
         col_list4=['Max Price','Min Price', 'Max Monthly Price','Min Monthly Price' ,'Max Weekly Price','Min Weekly Price','Max Security Deposit', 'Max Availability in 30 days','Max Availability in 60 days','Max Availability in 90 days', 'Max Availability in 365 days']
         df4=sql.select_qry(f'select max(price),min(price),max(monthly_price),min(monthly_price),max(weekly_price),min(weekly_price),max(security_deposit),max(availability_30),max(availability_60),max(availability_90),max(availability_365) from airbnb where country="{country_in}" and government_area="{option_area}"',col_list4)
         st.dataframe(df4, hide_index=True)
         return
    
+    #  Pricewise analysis
     def price_charts():
-        col_list=['country','price','weekly_price','monthly_price' ,'security_deposit','room_type','bed_type','property_type','cleaning_fee']
-        df1 = sql.select_qry("select country,price,weekly_price, monthly_price,security_deposit,room_type,bed_type,property_type,cleaning_fee from airbnb",col_list)
+        st.markdown(f'<h4 style="text-align: center; color:blue ">Price Analysis</h4>',unsafe_allow_html=True)
+        col_list=['country','price','weekly_price','monthly_price' ,'security_deposit','room_type','bed_type','bed','bedrooms','bathrooms','property_type','cleaning_fee']
+        df1 = sql.select_qry("select country,price,weekly_price, monthly_price,security_deposit,room_type,bed_type,beds,bedrooms, bathrooms,property_type,cleaning_fee from airbnb",col_list)
         col1,col2,col3 = st.columns(3)
         with col1:
             country_in = st.selectbox('Select a Country',options=df1['country'].unique())
         with col2:
             option_lis = st.selectbox('Select room/bed price',options=['room','bed','property type'])
         with col3:
-            option_price = st.selectbox('Select any one',options=['price','monthly price','weekly price','security deposit'])
+            option_price = st.selectbox('Select any one',options=['price','monthly price','weekly price','security deposit','cleaning_fee'])
         if option_lis=='room':
-            xaxis='room_type'    
+            xaxis='room_type'
         elif option_lis=='bed':
             xaxis='bed_type'
         else:
@@ -292,14 +289,17 @@ class Data_Analysis:
             yaxis='security_deposit'
         else:
             yaxis='cleaning_fee'
-        df1 = df1.query(f'country == "{country_in}"  ')
-        fig1 = px.bar(df1, x=xaxis, y=yaxis,color=xaxis,color_continuous_scale="reds",text=yaxis,title="Price Analysis")
+        df1 = df1.query(f'country == "{country_in}"')
+        fig1 = px.bar(df1, x=xaxis, y=yaxis,color=xaxis,color_continuous_scale="reds",text=yaxis, title="Price Analysis")
         st.plotly_chart(fig1,use_container_width=True)
+        st.dataframe(df1, hide_index=True)
         return
     
+    # Rooms Availability in the year 
     def availability_charts():
-        col_list=['country','government_area','availability_30','availability_60' ,'availability_90','availability_365','price']
-        df2 = sql.select_qry("select country,government_area,availability_30,availability_60,availability_90,availability_365,price from airbnb order by country",col_list)
+        st.markdown(f'<h4 style="text-align: center; color:blue ">Rooms Availability analysis</h4>',unsafe_allow_html=True)
+        col_list=['country','government_area','street','name','availability_30','availability_60' ,'availability_90','availability_365','price']
+        df2 = sql.select_qry("select country,government_area,street,name,availability_30,availability_60,availability_90,availability_365,price from airbnb order by country",col_list)
         col4,col5,col6 = st.columns(3)
         pcolor='reds'
         with col4:
@@ -319,63 +319,58 @@ class Data_Analysis:
             yaxis='availability_365'
 
         df2 = df2.query(f'country == "{country_in}" and government_area=="{option_area}"')
-        fig2= px.pie(df2, names='price', values=yaxis,color_discrete_sequence=px.colors.sequential.Viridis, title='Rooms Availability')
-        st.plotly_chart(fig2,use_container_width=True)
+
+        fig2 = px.sunburst(df2, values='price', path=['government_area','street','name'],color_discrete_sequence=px.colors.sequential.Oranges_r, title='Location')
+        st.plotly_chart(fig2)  
+
         return
 
 
-# streamlit title, background color and tab configuration
+# streamlit page configuration
+def streamlit_config():
+    st.set_page_config(page_title='airbnb analysis - Kavitha',page_icon='airbnb.png', layout="wide")
+    st.markdown(f'<h1 style="text-align: center; color:red ">Airbnb Analysis</h1>',unsafe_allow_html=True)
+
+
+# Streamlit page setting
 streamlit_config()
 
-tab1, tab2, tab3,tab4,tab5,tab6 = st.tabs(["Airbnb Data", "Migration", "Data Analysis","Geo Visualization","Dashboard","About"])  
+tab1, tab2, tab3,tab4,tab5,tab6 = st.tabs([":blue[Airbnb Data]", ":blue[Migration]", ":blue[Data Analysis]",":blue[Geo Visualization]",":blue[Dashboard]",":blue[About]"])  
+
 with tab1:
-    df=Data_Collection.get_data()
-    df=Preprocessing.data_cleaning(df)
-    st.dataframe(df, hide_index=True)
 
+    st.write(":blue[airbnb data collected from Mongo db and cleaned]")
+    
 with tab2:
-    sql.create_table()
-    st.dataframe(df, hide_index=True)
 
-    if (st.button("Migration")):
-        sql.data_migration(df)
-        st.success('Successfully Data Migrated to SQL Database')
-        st.balloons() 
+    st.write(":blue[Data migrated to sql airbnb database]")
 
 with tab3:
     Data_Analysis.user_charts()
     Data_Analysis.price_charts()
     Data_Analysis.availability_charts()
-
+    
 with tab4:
-    cities=gpd.read_file(gpd.datasets.get_path("naturalearth_cities"))
-    cities["long"]=cities["geometry"].x
-    cities["lat"]=cities["geometry"].y
-    mydb =  mysql.connector.connect(
-    host="localhost",
-    user="root",
-    password="",
-    database="",
-    )
-    mycursor = mydb.cursor()
-    mycursor.execute("select  country,government_area,name,country_code,price,longitude,latitude,review_score_rating from airbnb")
-    query_res = mycursor.fetchall()
+    query="select  country,government_area,name,country_code,price,longitude,latitude,review_score_rating from airbnb"
+    query_res = sql.select_data(query)
+    
+    # Geo Map
     map_df = pd.DataFrame(query_res,columns=['country','area','airbnbname','country_code','price','longitude','latitude','review_score_rating'])
-    map_df['cities']=cities['name']
-    map_df["long"]=cities["long"]
-    map_df["lat"]=cities["lat"]
-    fig=px.scatter_mapbox(map_df,
-                          lat="latitude",
-                          lon="longitude",
-                          hover_name='airbnbname',
-                          hover_data='price',
-                          color="cities",
-                          zoom=5,
-                          height=500,
-                          width=1200
-                          )
-    fig.update_layout(mapbox_style='stamen-terrain')
-    fig.update_layout(title_text='Airbnb')
+    
+    dt_hover_data=['country','area','price','review_score_rating']
+    fig=px.scatter_mapbox(
+                        map_df,
+                        lat="latitude",
+                        lon="longitude",
+                        hover_name='airbnbname',
+                        hover_data=dt_hover_data,
+                        color="country",
+                        zoom=3,
+                        height=1500,
+                        width=1200
+                        )
+    fig.update_layout(mapbox_style='carto-positron')
+    fig.update_layout(title_text='Airbnb Geo Visualization')
     st.plotly_chart(fig, use_container_width=True)
 
 with tab5:
@@ -383,5 +378,4 @@ with tab5:
 
 with tab6:
     st.markdown("* :blue[This application is used to analyze Airbnb data using MongoDB Atlas, perform data cleaning and preparation, develop interactive geospatial visualizations, and create dynamic plots to gain insights into pricing variations, availability patterns, and location-based trends.]")
-    st.markdown("* :blue[Used Tech: Python, Streamlit, MongoDb, PowerBI and MySQL.]")
-  
+    st.markdown("* :blue[Used Tech: Python, Streamlit, MongoDb, PowerBI and MySQL.]")  
