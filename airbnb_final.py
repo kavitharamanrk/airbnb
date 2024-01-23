@@ -7,7 +7,7 @@ import plotly.express as px
 import streamlit as st
 import matplotlib.pyplot as plt
 
-
+# For Mongodb
 class Data_Collection:
     def get_data():
         try:
@@ -23,6 +23,7 @@ class Data_Collection:
             print("Mongo data collected")                
         return df
     
+# Pre Processing  
 class Preprocessing:
     def data_cleaning(df):
         try:
@@ -63,6 +64,8 @@ class Preprocessing:
             df['review_scores_value'] =df['review_scores'].apply(lambda x: x.get('review_scores_value', 0))
             df.drop('review_scores',axis=1, inplace=True)
         
+            # df['reviewer_name'] = df['reviews'].apply(lambda x: x['reviewer_name'])
+            # df['review_comment'] = df['reviews'].apply(lambda x: x['comments'])
         
             # host
             df['host_id'] = df['host'].apply(lambda x: x['host_id'])
@@ -114,6 +117,7 @@ class Preprocessing:
             print("data cleaned")
         return df
 
+# For Data migration into SQL
 class sql:
     # Create table in sql
     def create_table():
@@ -244,17 +248,27 @@ class sql:
 # user,price, availability Charts 
 class Data_Analysis:
     # Locationwise analysis
-    def user_charts():
+    def loc_charts():
         st.markdown(f'<h4 style="text-align: center; color:blue ">Locationwise Analysis</h4>',unsafe_allow_html=True)
-        col_list3=['country','government_area']
-        df3 = sql.select_qry("select  country, government_area from  airbnb order by country",col_list3)
-        col7,col8 = st.columns(2)
+        loc_col_list=['country','government_area','street','name','price']
+        loc_df = sql.select_qry("select country,government_area,street,name,price from airbnb order by country",loc_col_list)
+
+        col1,col2 = st.columns(2)
         pcolor='reds'
-        with col7:
-            country_in = st.selectbox('Select Country',options=df3['country'].unique())
-        with col8:
-            df3 = df3.query(f'country == "{country_in}"')
-            option_area = st.selectbox('Select area',options=df3['government_area'].unique())
+        with col1:
+            country_in = st.selectbox('Select Country',options=loc_df['country'].unique())
+        with col2:
+            loc_df = loc_df.query(f'country == "{country_in}"')
+            option_area = st.selectbox('Select area',options=loc_df['government_area'].unique())
+            
+        loc_df = loc_df.query(f'country == "{country_in}" and government_area=="{option_area}"')
+        loc_title="Rooms available in " + country_in + ' -  ' + option_area
+        fig1 = px.sunburst(loc_df, values='price', path=['government_area','street','name'],color_discrete_sequence=px.colors.sequential.Oranges_r, title=loc_title)
+        fig1.update_layout(
+        width=1000,  
+        height=800,
+        )
+        st.plotly_chart(fig1) 
 
         col_list4=['Max Price','Min Price', 'Max Monthly Price','Min Monthly Price' ,'Max Weekly Price','Min Weekly Price','Max Security Deposit', 'Max Availability in 30 days','Max Availability in 60 days','Max Availability in 90 days', 'Max Availability in 365 days']
         df4=sql.select_qry(f'select max(price),min(price),max(monthly_price),min(monthly_price),max(weekly_price),min(weekly_price),max(security_deposit),max(availability_30),max(availability_60),max(availability_90),max(availability_365) from airbnb where country="{country_in}" and government_area="{option_area}"',col_list4)
@@ -264,21 +278,27 @@ class Data_Analysis:
     #  Pricewise analysis
     def price_charts():
         st.markdown(f'<h4 style="text-align: center; color:blue ">Price Analysis</h4>',unsafe_allow_html=True)
-        col_list=['country','price','weekly_price','monthly_price' ,'security_deposit','room_type','bed_type','bed','bedrooms','bathrooms','property_type','cleaning_fee']
-        df1 = sql.select_qry("select country,price,weekly_price, monthly_price,security_deposit,room_type,bed_type,beds,bedrooms, bathrooms,property_type,cleaning_fee from airbnb",col_list)
-        col1,col2,col3 = st.columns(3)
-        with col1:
-            country_in = st.selectbox('Select a Country',options=df1['country'].unique())
-        with col2:
-            option_lis = st.selectbox('Select room/bed price',options=['room','bed','property type'])
+        price_col_list=['country','government_area','price','weekly_price','monthly_price' ,'security_deposit','room_type','bed_type','bed','bedrooms','bathrooms','property_type','cleaning_fee']
+        price_df = sql.select_qry("select country,government_area,price,weekly_price, monthly_price,security_deposit,room_type,bed_type,beds,bedrooms, bathrooms,property_type,cleaning_fee from airbnb order by country",price_col_list)
+        
+        col3,col4,col5,col6 = st.columns(4)
         with col3:
+            price_country_in = st.selectbox('Select a Country',options=price_df['country'].unique())
+        with col4:
+            price_df = price_df.query(f'country == "{price_country_in}"')
+            price_area = st.selectbox('Select an area',options=price_df['government_area'].unique())
+        with col5:
+            option_lis = st.selectbox('Select room/bed/property',options=['room','bed','property type'])
+        with col6:
             option_price = st.selectbox('Select any one',options=['price','monthly price','weekly price','security deposit','cleaning_fee'])
+        # x axis
         if option_lis=='room':
             xaxis='room_type'
         elif option_lis=='bed':
             xaxis='bed_type'
         else:
             xaxis='property_type'
+        # y axis
         if option_price=='price':
             yaxis='price'
         elif option_price=='monthly price':
@@ -289,26 +309,34 @@ class Data_Analysis:
             yaxis='security_deposit'
         else:
             yaxis='cleaning_fee'
-        df1 = df1.query(f'country == "{country_in}"')
-        fig1 = px.bar(df1, x=xaxis, y=yaxis,color=xaxis,color_continuous_scale="reds",text=yaxis, title="Price Analysis")
-        st.plotly_chart(fig1,use_container_width=True)
-        st.dataframe(df1, hide_index=True)
+            
+        price_title= xaxis + ' - ' + yaxis    
+        price_df = price_df.query(f'country == "{price_country_in}" and government_area=="{price_area}"')
+        fig2= px.bar(price_df, x=xaxis, y=yaxis,color=xaxis,color_continuous_scale="reds",text=yaxis, title=price_title)
+        fig2.update_layout(
+        width=800,  
+        height=500,
+        )
+        st.plotly_chart(fig2,use_container_width=True)
+
         return
     
     # Rooms Availability in the year 
     def availability_charts():
         st.markdown(f'<h4 style="text-align: center; color:blue ">Rooms Availability analysis</h4>',unsafe_allow_html=True)
-        col_list=['country','government_area','street','name','availability_30','availability_60' ,'availability_90','availability_365','price']
-        df2 = sql.select_qry("select country,government_area,street,name,availability_30,availability_60,availability_90,availability_365,price from airbnb order by country",col_list)
-        col4,col5,col6 = st.columns(3)
+        
+        ava_col_list=['country','government_area','street','name','availability_30','availability_60' ,'availability_90','availability_365','price']
+        ava_df= sql.select_qry("select country,government_area,street,name,availability_30,availability_60,availability_90,availability_365,price from airbnb order by country",ava_col_list)
+        col7,col8,col9 = st.columns(3)
         pcolor='reds'
-        with col4:
-            country_in = st.selectbox('Country',options=df2['country'].unique())
-        with col5:
-            df2 = df2.query(f'country == "{country_in}"')
-            option_area = st.selectbox('Area',options=df2['government_area'].unique())
-        with col6:
+        with col7:
+            country_in = st.selectbox('Country',options=ava_df['country'].unique())
+        with col8:
+            ava_df = ava_df.query(f'country == "{country_in}"')
+            option_area = st.selectbox('Area',options=ava_df['government_area'].unique())
+        with col9:
             option_price = st.selectbox('Select Availability in days',options=['30','60' ,'90','365'])
+            
         if option_price=='30':
             yaxis='availability_30'
         elif option_price=='60':
@@ -318,10 +346,10 @@ class Data_Analysis:
         elif option_price=='365':
             yaxis='availability_365'
 
-        df2 = df2.query(f'country == "{country_in}" and government_area=="{option_area}"')
+        ava_df = ava_df.query(f'country == "{country_in}" and government_area=="{option_area}"')
 
-        fig2 = px.sunburst(df2, values='price', path=['government_area','street','name'],color_discrete_sequence=px.colors.sequential.Oranges_r, title='Location')
-        st.plotly_chart(fig2)  
+        fig3 = px.area(ava_df, x='price', y=yaxis,color_discrete_sequence=px.colors.sequential.Oranges_r, title=yaxis)
+        st.plotly_chart(fig3)
 
         return
 
@@ -332,26 +360,34 @@ def streamlit_config():
     st.markdown(f'<h1 style="text-align: center; color:red ">Airbnb Analysis</h1>',unsafe_allow_html=True)
 
 
-# Streamlit page setting
+# Streamlit page seting
 streamlit_config()
 
 tab1, tab2, tab3,tab4,tab5,tab6 = st.tabs([":blue[Airbnb Data]", ":blue[Migration]", ":blue[Data Analysis]",":blue[Geo Visualization]",":blue[Dashboard]",":blue[About]"])  
 
 with tab1:
-
+    # df=Data_Collection.get_data()
+    # df=Preprocessing.data_cleaning(df)
+    # st.dataframe(df, hide_index=True)
     st.write(":blue[airbnb data collected from Mongo db and cleaned]")
     
 with tab2:
-
+    # sql.create_table()
+    # st.dataframe(df, hide_index=True)
+    
+    # if (st.button("Migration")):
+    #     sql.data_migration(df)
+    #     st.success('Successfully Data Migrated to SQL Database')
+    #     st.balloons() 
     st.write(":blue[Data migrated to sql airbnb database]")
 
 with tab3:
-    Data_Analysis.user_charts()
+    Data_Analysis.loc_charts()
     Data_Analysis.price_charts()
     Data_Analysis.availability_charts()
     
 with tab4:
-    query="select  country,government_area,name,country_code,price,longitude,latitude,review_score_rating from airbnb"
+    query="select  country,government_area,name,country_code,price,longitude,latitude,review_score_rating from airbnb order by country"
     query_res = sql.select_data(query)
     
     # Geo Map
